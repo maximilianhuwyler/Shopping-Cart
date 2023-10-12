@@ -17,7 +17,7 @@ RUN pip install pipenv
 RUN pipenv install --deploy --ignore-pipfile
 
 # Expose the port where the Flask app will run
-EXPOSE 5000
+# EXPOSE 5000
 
 # Start the Flask app
 CMD ["pipenv", "run", "flask", "run"]

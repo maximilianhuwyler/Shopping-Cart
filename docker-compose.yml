@@ -4,10 +4,14 @@ services:
     build:
       context: ./server # Replace with the path to your application code
       dockerfile: Dockerfile # Replace with the actual name of your Dockerfile
-    ports:
-      - "5000:80" # Map port 80 in the container to port 5000 on the host
-    # volumes:
-    #   - ./path/to/your/app:/app # Mount your application code into the container
-    # environment:
-    #   - APP_ENV=production # Set environment variables as needed
     restart: on-failure # Restart the container automatically if it stops
+    expose:
+      - "5000"
+
+  nginx:
+    build:
+      context: ./nginx # Replace with the path to your application code
+      dockerfile: nginx.Dockerfile # Replace with the actual name of your Dockerfile
+    ports:
+      - "80:80"
+    restart: always # Restart the container automatically if it stops
