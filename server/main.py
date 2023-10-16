@@ -1,12 +1,20 @@
 from flask import *
 import sqlite3, hashlib, os
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
+
 
 app = Flask(__name__)
 app.secret_key = 'random string'
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = set(['jpeg', 'jpg', 'png', 'gif'])
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.jinja_env.auto_reload = True
+
+# https://flask.palletsprojects.com/en/2.3.x/deploying/proxy_fix/
+app.wsgi_app = ProxyFix(
+        app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+    )
 
 def getLoginDetails():
     with sqlite3.connect('database.db') as conn:
