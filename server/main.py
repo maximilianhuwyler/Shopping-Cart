@@ -2,6 +2,7 @@ from flask import *
 import sqlite3, hashlib, os
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
+import html
 
 
 app = Flask(__name__)
@@ -16,6 +17,11 @@ app.wsgi_app = ProxyFix(
         app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
     )
 
+def sanitize_input(input_str):
+    # Escaping special characters in HTML
+    sanitized_str = html.escape(input_str)
+    return sanitized_str
+
 def getLoginDetails():
     with sqlite3.connect('database.db') as conn:
         cur = conn.cursor()
@@ -25,9 +31,9 @@ def getLoginDetails():
             noOfItems = 0
         else:
             loggedIn = True
-            cur.execute("SELECT userId, firstName FROM users WHERE email = ?", (session['email'], ))
+            cur.execute("SELECT userId, firstName FROM users WHERE email = ?", (sanitize_input(session['email']), ))
             userId, firstName = cur.fetchone()
-            cur.execute("SELECT count(productId) FROM kart WHERE userId = ?", (userId, ))
+            cur.execute("SELECT count(productId) FROM kart WHERE userId = ?", (sanitize_input(userId), ))
             noOfItems = cur.fetchone()[0]
     conn.close()
     return (loggedIn, firstName, noOfItems)
@@ -71,7 +77,7 @@ def addItem():
         with sqlite3.connect('database.db') as conn:
             try:
                 cur = conn.cursor()
-                cur.execute('''INSERT INTO products (name, price, description, image, stock, categoryId) VALUES (?, ?, ?, ?, ?, ?)''', (name, price, description, imagename, stock, categoryId))
+                cur.execute('''INSERT INTO products (name, price, description, image, stock, categoryId) VALUES (?, ?, ?, ?, ?, ?)''', (sanitize_input(name), sanitize_input(price), sanitize_input(description), sanitize_input(imagename), sanitize_input(stock), sanitize_input(categoryId)))
                 conn.commit()
                 msg="added successfully"
             except:
@@ -96,7 +102,7 @@ def removeItem():
     with sqlite3.connect('database.db') as conn:
         try:
             cur = conn.cursor()
-            cur.execute('DELETE FROM products WHERE productID = ?', (productId, ))
+            cur.execute('DELETE FROM products WHERE productID = ?', (sanitize_input(productId), ))
             conn.commit()
             msg = "Deleted successsfully"
         except:
@@ -112,7 +118,7 @@ def displayCategory():
         categoryId = request.args.get("categoryId")
         with sqlite3.connect('database.db') as conn:
             cur = conn.cursor()
-            cur.execute("SELECT products.productId, products.name, products.price, products.image, categories.name FROM products, categories WHERE products.categoryId = categories.categoryId AND categories.categoryId = ?", (categoryId, ))
+            cur.execute("SELECT products.productId, products.name, products.price, products.image, categories.name FROM products, categories WHERE products.categoryId = categories.categoryId AND categories.categoryId = ?", (sanitize_input(categoryId), ))
             data = cur.fetchall()
         conn.close()
         categoryName = data[0][4]
@@ -133,7 +139,7 @@ def editProfile():
     loggedIn, firstName, noOfItems = getLoginDetails()
     with sqlite3.connect('database.db') as conn:
         cur = conn.cursor()
-        cur.execute("SELECT userId, email, firstName, lastName, address1, address2, zipcode, city, state, country, phone FROM users WHERE email = ?", (session['email'], ))
+        cur.execute("SELECT userId, email, firstName, lastName, address1, address2, zipcode, city, state, country, phone FROM users WHERE email = ?", (sanitize_input(session['email']), ))
         profileData = cur.fetchone()
     conn.close()
     return render_template("editProfile.html", profileData=profileData, loggedIn=loggedIn, firstName=firstName, noOfItems=noOfItems)
@@ -149,11 +155,11 @@ def changePassword():
         newPassword = hashlib.md5(newPassword.encode()).hexdigest()
         with sqlite3.connect('database.db') as conn:
             cur = conn.cursor()
-            cur.execute("SELECT userId, password FROM users WHERE email = ?", (session['email'], ))
+            cur.execute("SELECT userId, password FROM users WHERE email = ?", (sanitize_input(session['email']), ))
             userId, password = cur.fetchone()
             if (password == oldPassword):
                 try:
-                    cur.execute("UPDATE users SET password = ? WHERE userId = ?", (newPassword, userId))
+                    cur.execute("UPDATE users SET password = ? WHERE userId = ?", (sanitize_input(newPassword), sanitize_input(userId)))
                     conn.commit()
                     msg="Changed successfully"
                 except:
@@ -183,7 +189,7 @@ def updateProfile():
         with sqlite3.connect('database.db') as con:
                 try:
                     cur = con.cursor()
-                    cur.execute('UPDATE users SET firstName = ?, lastName = ?, address1 = ?, address2 = ?, zipcode = ?, city = ?, state = ?, country = ?, phone = ? WHERE email = ?', (firstName, lastName, address1, address2, zipcode, city, state, country, phone, email))
+                    cur.execute('UPDATE users SET firstName = ?, lastName = ?, address1 = ?, address2 = ?, zipcode = ?, city = ?, state = ?, country = ?, phone = ? WHERE email = ?', (sanitize_input(firstName), sanitize_input(lastName), sanitize_input(address1), sanitize_input(address2), sanitize_input(zipcode), sanitize_input(city), sanitize_input(state), sanitize_input(country), sanitize_input(phone), sanitize_input(email)))
 
                     con.commit()
                     msg = "Saved Successfully"
@@ -218,7 +224,7 @@ def productDescription():
     productId = request.args.get('productId')
     with sqlite3.connect('database.db') as conn:
         cur = conn.cursor()
-        cur.execute('SELECT productId, name, price, description, image, stock FROM products WHERE productId = ?', (productId, ))
+        cur.execute('SELECT productId, name, price, description, image, stock FROM products WHERE productId = ?', (sanitize_input(productId), ))
         productData = cur.fetchone()
     conn.close()
     return render_template("productDescription.html", data=productData, loggedIn = loggedIn, firstName = firstName, noOfItems = noOfItems)
@@ -231,10 +237,10 @@ def addToCart():
         productId = int(request.args.get('productId'))
         with sqlite3.connect('database.db') as conn:
             cur = conn.cursor()
-            cur.execute("SELECT userId FROM users WHERE email = ?", (session['email'], ))
+            cur.execute("SELECT userId FROM users WHERE email = ?", (sanitize_input(session['email']), ))
             userId = cur.fetchone()[0]
             try:
-                cur.execute("INSERT INTO kart (userId, productId) VALUES (?, ?)", (userId, productId))
+                cur.execute("INSERT INTO kart (userId, productId) VALUES (?, ?)", (sanitize_input(userId), sanitize_input(productId)))
                 conn.commit()
                 msg = "Added successfully"
             except:
@@ -251,9 +257,9 @@ def cart():
     email = session['email']
     with sqlite3.connect('database.db') as conn:
         cur = conn.cursor()
-        cur.execute("SELECT userId FROM users WHERE email = ?", (email, ))
+        cur.execute("SELECT userId FROM users WHERE email = ?", (sanitize_input(email), ))
         userId = cur.fetchone()[0]
-        cur.execute("SELECT products.productId, products.name, products.price, products.image FROM products, kart WHERE products.productId = kart.productId AND kart.userId = ?", (userId, ))
+        cur.execute("SELECT products.productId, products.name, products.price, products.image FROM products, kart WHERE products.productId = kart.productId AND kart.userId = ?", (sanitize_input(userId), ))
         products = cur.fetchall()
     totalPrice = 0
     for row in products:
@@ -268,10 +274,10 @@ def removeFromCart():
     productId = int(request.args.get('productId'))
     with sqlite3.connect('database.db') as conn:
         cur = conn.cursor()
-        cur.execute("SELECT userId FROM users WHERE email = ?", (email, ))
+        cur.execute("SELECT userId FROM users WHERE email = ?", (sanitize_input(email), ))
         userId = cur.fetchone()[0]
         try:
-            cur.execute("DELETE FROM kart WHERE userId = ? AND productId = ?", (userId, productId))
+            cur.execute("DELETE FROM kart WHERE userId = ? AND productId = ?", (sanitize_input(userId), sanitize_input(productId)))
             conn.commit()
             msg = "removed successfully"
         except:
@@ -314,7 +320,7 @@ def register():
         with sqlite3.connect('database.db') as con:
             try:
                 cur = con.cursor()
-                cur.execute('INSERT INTO users (password, email, firstName, lastName, address1, address2, zipcode, city, state, country, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (hashlib.md5(password.encode()).hexdigest(), email, firstName, lastName, address1, address2, zipcode, city, state, country, phone))
+                cur.execute('INSERT INTO users (password, email, firstName, lastName, address1, address2, zipcode, city, state, country, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (hashlib.md5(sanitize_input(password).encode()).hexdigest(), sanitize_input(email), sanitize_input(firstName), sanitize_input(lastName), sanitize_input(address1), sanitize_input(address2), sanitize_input(zipcode), sanitize_input(city), sanitize_input(state), sanitize_input(country), sanitize_input(phone)))
 
                 con.commit()
 
