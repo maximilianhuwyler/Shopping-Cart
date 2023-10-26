@@ -335,6 +335,13 @@ def register():
 def registrationForm():
     return render_template("register.html")
 
+# catch any error:
+@app.errorhandler(Exception)
+def page_not_found(e):
+    # your processing here
+    return render_template("404.html")
+
+
 def allowed_file(filename):
     return '.' in filename and \
             filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
