@@ -206,7 +206,7 @@ def loginForm():
     else:
         return render_template('login.html', error='')
 
-@app.route("/login", methods = ['POST', 'GET'])
+@app.route("/login", methods = ['POST'])
 def login():
     if request.method == 'POST':
         email = request.form['email']
