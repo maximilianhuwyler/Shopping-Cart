@@ -23,6 +23,17 @@ app.wsgi_app = ProxyFix(
         app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
     )
 
+def sanitize_string(input_str):
+    input_str = input_str
+    input_str = input_str.replace("&", "") 
+    input_str = input_str.replace('"', "")
+    input_str = input_str.replace('\'', "")
+    input_str = input_str.replace('/', "")
+    input_str = input_str.replace('-', "")
+    input_str = input_str.replace('--', "")
+    sanitized_str = input_str.replace('/', "")
+    return sanitized_str
+
 def sanitize_input(input_str):
     # if empty string or null
     if not input_str:
@@ -31,8 +42,7 @@ def sanitize_input(input_str):
     if type(input_str) is int:
         return input_str
 
-    # Escaping special characters in HTML
-    sanitized_str = html.escape(input_str)
+    sanitized_str = sanitize_string(input_str)
     return sanitized_str
 
 def getLoginDetails():
