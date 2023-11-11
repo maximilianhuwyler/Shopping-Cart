@@ -3,10 +3,16 @@ import sqlite3, hashlib, os
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 import html
+import string
+import secrets
 
+def generate_key():
+    alphabet = string.ascii_letters + string.digits
+    key = ''.join(secrets.choice(alphabet) for i in range(20))
+    return key
 
 app = Flask(__name__)
-app.secret_key = 'random string'
+app.secret_key = generate_key() #'random string'
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = set(['jpeg', 'jpg', 'png', 'gif'])
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -18,24 +24,41 @@ app.wsgi_app = ProxyFix(
     )
 
 def sanitize_input(input_str):
+    # if empty string or null
+    if not input_str:
+        return input_str
+
+    if type(input_str) is int:
+        return input_str
+
     # Escaping special characters in HTML
     sanitized_str = html.escape(input_str)
     return sanitized_str
 
 def getLoginDetails():
+    loggedIn = False
+    firstName = ''
+    noOfItems = 0
+    if 'email' not in session:
+        app.logger.info('getLoginDetails: no userfound!')
+        return (loggedIn, firstName, noOfItems)
+
+    app.logger.info('getLoginDetails: %s fetching user with', session['email'])
     with sqlite3.connect('database.db') as conn:
         cur = conn.cursor()
-        if 'email' not in session:
-            loggedIn = False
-            firstName = ''
-            noOfItems = 0
-        else:
-            loggedIn = True
-            cur.execute("SELECT userId, firstName FROM users WHERE email = ?", (sanitize_input(session['email']), ))
-            userId, firstName = cur.fetchone()
+        cur.execute("SELECT userId, firstName FROM users WHERE email = ?", (sanitize_input(session['email']), ))
+        userobj = cur.fetchone()
+        userId, firstName = userobj if userobj else (None, None)
+
+
+        if userId:
             cur.execute("SELECT count(productId) FROM kart WHERE userId = ?", (sanitize_input(userId), ))
             noOfItems = cur.fetchone()[0]
-    conn.close()
+            loggedIn = True
+            if not firstName:
+                firstName = 'Guest'
+
+    conn.close() if conn else None
     return (loggedIn, firstName, noOfItems)
 
 @app.route("/")
@@ -47,6 +70,9 @@ def root():
         itemData = cur.fetchall()
         cur.execute('SELECT categoryId, name FROM categories')
         categoryData = cur.fetchall()
+    conn.close() if conn else None
+
+    app.logger.debug('root: fetch items %s', str(len(itemData)))
     itemData = parse(itemData)   
     return render_template('home.html', itemData=itemData, loggedIn=loggedIn, firstName=firstName, noOfItems=noOfItems, categoryData=categoryData)
 
@@ -202,9 +228,12 @@ def updateProfile():
 @app.route("/loginForm")
 def loginForm():
     if 'email' in session:
-        return redirect(url_for('root'))
-    else:
-        return render_template('login.html', error='')
+        loggedIn, firstName, noOfItems = getLoginDetails()
+        if loggedIn:
+            return redirect(url_for('root'))
+        else:
+            return render_template('login.html', error='This token is wrong!')
+    return render_template('login.html', error='')
 
 @app.route("/login", methods = ['POST'])
 def login():
@@ -339,6 +368,7 @@ def registrationForm():
 @app.errorhandler(Exception)
 def page_not_found(e):
     # your processing here
+    app.logger.error('%s errorhandler thrown', e)
     return render_template("404.html")
 
 
