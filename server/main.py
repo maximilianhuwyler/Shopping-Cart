@@ -62,7 +62,7 @@ def getLoginDetails():
 
 
         if userId:
-            cur.execute("SELECT count(productId) FROM kart WHERE userId = ?", (sanitize_input(userId), ))
+            cur.execute("SELECT count(productId) FROM kart WHERE userId = ?", (userId, ))
             noOfItems = cur.fetchone()[0]
             loggedIn = True
             if not firstName:
@@ -161,6 +161,13 @@ def displayCategory():
         data = parse(data)
         return render_template('displayCategory.html', data=data, loggedIn=loggedIn, firstName=firstName, noOfItems=noOfItems, categoryName=categoryName)
 
+@app.route("/account/orders")
+def ordersHome():
+    if 'email' not in session:
+        return redirect(url_for('root'))
+    loggedIn, firstName, noOfItems = getLoginDetails()
+    return render_template("orders.html", loggedIn=loggedIn, firstName=firstName, noOfItems=noOfItems)
+
 @app.route("/account/profile")
 def profileHome():
     if 'email' not in session:
@@ -175,7 +182,7 @@ def editProfile():
     loggedIn, firstName, noOfItems = getLoginDetails()
     with sqlite3.connect('database.db') as conn:
         cur = conn.cursor()
-        cur.execute("SELECT userId, email, firstName, lastName, address1, address2, zipcode, city, state, country, phone FROM users WHERE email = ?", (sanitize_input(session['email']), ))
+        cur.execute("SELECT userId, email, firstName, lastName, address1, address2, zipcode, city, state, country, phone FROM users WHERE email = ?", (session['email'], ))
         profileData = cur.fetchone()
     conn.close()
     return render_template("editProfile.html", profileData=profileData, loggedIn=loggedIn, firstName=firstName, noOfItems=noOfItems)
@@ -298,7 +305,7 @@ def cart():
         cur = conn.cursor()
         cur.execute("SELECT userId FROM users WHERE email = ?", (sanitize_input(email), ))
         userId = cur.fetchone()[0]
-        cur.execute("SELECT products.productId, products.name, products.price, products.image FROM products, kart WHERE products.productId = kart.productId AND kart.userId = ?", (sanitize_input(userId), ))
+        cur.execute("SELECT products.productId, products.name, products.price, products.image FROM products, kart WHERE products.productId = kart.productId AND kart.userId = ?", (userId, ))
         products = cur.fetchall()
     totalPrice = 0
     for row in products:
@@ -373,6 +380,10 @@ def register():
 @app.route("/registerationForm")
 def registrationForm():
     return render_template("register.html")
+
+@app.route("/checkout")
+def checkout():
+    return render_template("checkout.html")
 
 # catch any error:
 @app.errorhandler(Exception)
