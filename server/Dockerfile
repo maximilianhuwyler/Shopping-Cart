@@ -1,5 +1,5 @@
 # Use the official Python image as the base image
-FROM python:3.8
+FROM python:3.14.0a2
 
 # Set environment variables for Flask (you can adjust as needed)
 ENV FLASK_APP=main.py
